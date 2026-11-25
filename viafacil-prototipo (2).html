@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ViaFácil</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<style>
+  /* ==========================================================================
+     ViaFácil · protótipo navegável (5 telas) · idosos e baixa visão · WCAG 2.1 AAA
+     Layout: uma coluna de celular (máx. 430px), uma etapa por tela, rodapé fixo
+     com o botão principal sempre à vista.
+     ========================================================================== */
+  :root {
+    --paper: #E4F2E9;        /* fundo verde-claro suave; texto preto continua com contraste AAA */
+    --paper-soft: #D3E8DB;   /* um tom acima, só na área fora do "celular" */
+    --ink: #000000;          /* A11Y: texto preto sobre branco = contraste 21:1 */
+    --ink-soft: #333333;     /* A11Y: texto secundário, ainda 12:1 sobre branco */
+    --go: #006633;           /* A11Y: verde escuro, 8:1 com texto branco (AAA) */
+    --alert: #FFF200;        /* caixa de ajuda: amarelo canário com texto preto */
+    --danger: #D32F2F;       /* erro: borda vermelha forte de 3px */
+    --picked: #9A3412;       /* poltrona escolhida: laranja escuro, 7,3:1 com branco (AAA) */
+    --sold: #E5E7EB;
+    --font-ui: 'Inter', 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; } /* garante que campos e botões de largura total não passem da tela */
+  [hidden] { display: none !important; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper-soft);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 18px;         /* A11Y: corpo de texto mínimo de 18px (text-lg) */
+    line-height: 1.5;
+    padding-block: 0;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+
+  /* A11Y: foco sempre visível para quem navega por teclado ou switch */
+  :focus-visible { outline: 4px solid #000; outline-offset: 3px; }
+  h1:focus { outline: none; }
+
+  /* A11Y: sem animações para quem pede movimento reduzido */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  }
+
+  /* ---------- Barra do protótipo (não faz parte do app) ---------- */
+  .proto-bar { max-width: 430px; margin: 12px auto 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 16px; color: var(--ink-soft); }
+  .proto-bar button { min-height: 48px; min-width: 48px; padding: 6px 12px; border: 2px dashed #000; background: #fff; color: #000; border-radius: 10px; font: 700 16px var(--font-ui); cursor: pointer; }
+  .proto-bar button[aria-current="page"] { background: #000; color: #fff; border-style: solid; }
+
+  /* ---------- Moldura de celular ---------- */
+  .phone { max-width: 430px; margin: 0 auto 24px; background: var(--paper); }
+  .screen { display: flex; flex-direction: column; min-height: 100vh; }
+  .pad { padding-inline: 0; }
+  @media (min-width: 640px) {
+    .phone { border: 3px solid #000; border-radius: 28px; overflow: clip; }
+    .screen { min-height: 820px; }
+    .pad { padding-inline: 16px; }
+  }
+  .head { padding-top: 12px; padding-bottom: 8px; }
+  .body { flex: 1; padding-top: 12px; padding-bottom: 24px; display: flex; flex-direction: column; gap: 22px; }
+  .topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; }
+  /* Logotipo igual nas 5 telas: texto verde escuro, sem fundo */
+  .brand { font-weight: 800; font-size: 24px; color: var(--go); background: none; letter-spacing: -0.01em; }
+  .step { font-size: 20px; font-weight: 700; margin: 8px 0 10px; }
+  .title { font-size: 28px; line-height: 1.2; font-weight: 800; margin: 16px 0 0; text-wrap: balance; }
+
+  /* A11Y: indicador de progresso visual + texto "Passo X de 4" (não depende só de cor) */
+  .progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .progress i { display: block; height: 14px; border: 2px solid #000; border-radius: 7px; background: #fff; }
+  .progress i.on { background: var(--go); }
+
+  .screen-foot {
+    position: sticky; bottom: 0;
+    background: var(--paper); border-top: 3px solid #000;
+    padding-top: 12px; padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* ---------- Botões ---------- */
+  /* A11Y: altura mínima de 60px, largura total, alvo de toque maior que 56x56px */
+  .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 60px; padding: 14px 20px; font: 800 20px/1.2 var(--font-ui); text-align: center; border: 3px solid #000; border-radius: 12px; cursor: pointer; text-decoration: none; }
+  .btn-go { background: var(--go); border-color: var(--go); color: #fff; }
+  .btn-dark { background: #000; color: #fff; }
+  .btn-line { background: #fff; color: #000; }
+  .btn:active { transform: translateY(1px); }
+  .back { display: inline-flex; align-items: center; gap: 8px; min-height: 56px; min-width: 56px; padding: 8px 16px; font: 800 20px var(--font-ui); background: #fff; color: #000; border: 3px solid #000; border-radius: 12px; cursor: pointer; }
+
+  /* ---------- Campos de formulário ---------- */
+  .lbl { display: block; font-size: 20px; font-weight: 700; margin-bottom: 8px; } /* A11Y: rótulo 20px bold */
+  .hint { font-size: 18px; color: var(--ink-soft); margin: 8px 0 0; }
+  .field { width: 100%; min-height: 64px; padding: 12px 16px; font: 500 22px var(--font-ui); color: #000; background: #fff; border: 2px solid #000; border-radius: 10px; }
+  /* ERRO HUMANIZADO: borda vermelha de 3px (padding compensa para o campo não "pular") */
+  .field.is-error { border: 3px solid var(--danger); padding: 11px 15px; }
+
+  /* A11Y: caixa de ajuda/alerta amarela com borda e texto pretos */
+  .alert-box { background: var(--alert); color: #000; border: 3px solid #000; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .alert-box p { margin: 0; }
+  .alert-title { font-size: 20px; font-weight: 800; }
+
+  /* ---------- Data ---------- */
+  .date-btn { min-height: 76px; padding: 10px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 800 24px/1.1 var(--font-ui); background: #fff; color: #000; border: 3px solid #000; border-radius: 12px; cursor: pointer; }
+  .date-btn small { font-size: 18px; font-weight: 500; }
+  .date-btn[aria-pressed="true"], .other-btn[aria-pressed="true"] { background: #000; color: #fff; }
+  .other-btn { width: 100%; min-height: 60px; font: 800 20px var(--font-ui); background: #fff; color: #000; border: 3px solid #000; border-radius: 12px; cursor: pointer; }
+
+  /* ---------- Cards de horário ---------- */
+  .trip-card { border: 2px solid #000; border-radius: 14px; padding: 16px; background: #fff; display: flex; flex-direction: column; gap: 12px; } /* borda preta 2px */
+  .trip-dep { font-size: 26px; font-weight: 800; line-height: 1; }
+  .trip-price { font-size: 30px; font-weight: 800; line-height: 1; color: var(--go); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 18px; }
+  .kv dt { font-weight: 700; }
+  .kv dd { margin: 0; }
+
+  /* ---------- Abas ---------- */
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; border: 3px solid #000; border-radius: 12px; overflow: hidden; }
+  .tab { min-height: 60px; padding: 8px 6px; font: 800 19px/1.15 var(--font-ui); background: #fff; color: #000; border: 0; cursor: pointer; }
+  .tab + .tab { border-left: 3px solid #000; }
+  .tab[aria-selected="true"] { background: #000; color: #fff; }
+
+  /* ---------- Mapa de poltronas (inspirado na imagem de referência) ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 0 0 4px; padding: 0; list-style: none; font-size: 18px; }
+  .legend li { display: flex; align-items: center; gap: 8px; }
+  .sw { width: 32px; height: 32px; border: 2px solid #000; border-radius: 6px; display: grid; place-content: center; font-weight: 800; background: #fff; flex: none; }
+  .sw.sold { background: var(--sold); border-style: dashed; }
+  .sw.pick { background: var(--picked); color: #fff; border-width: 3px; }
+  .bus { border: 3px solid #000; border-radius: 56px 56px 14px 14px; padding: 0 12px 14px; background: #fff; }
+  .bus-front { padding-top: 4px; }
+  .bus-front svg { display: block; width: 100%; height: auto; }
+  .bus-label { text-align: center; font-weight: 700; margin: 0 0 12px; }
+  .seat-grid { display: grid; grid-template-columns: 1fr 1fr 46px 1fr 1fr; gap: 10px 8px; }
+  /* A11Y: rótulos no topo das colunas (Janela | Corredor ... Corredor | Janela) e "Corredor" no espaço central */
+  .col-head { text-align: center; font-weight: 800; font-size: clamp(14px, 3.7vw, 17px); line-height: 1.1; min-width: 0; }
+  .aisle { grid-column: 3; grid-row: 1 / span 7; display: flex; align-items: center; justify-content: center; border-inline: 3px dotted #000; font-weight: 800; font-size: 18px; letter-spacing: .08em; text-transform: uppercase; writing-mode: vertical-rl; }
+  /* tom creme suave (#FFF8DC) com borda preta, para evitar desconforto visual */
+  .cream { background: #FFF8DC; color: #000; border: 3px solid #000; border-radius: 12px; padding: 16px; }
+  /* botão de inverter origem e destino */
+  .swap { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 60px; padding: 10px 16px; font: 800 20px/1.2 var(--font-ui); background: #fff; color: #000; border: 3px solid #000; border-radius: 12px; cursor: pointer; }
+  .swap span[aria-hidden] { font-size: 28px; line-height: 1; }
+  .seat { min-height: 56px; min-width: 0; width: 100%; font: 800 20px/1 var(--font-ui); background: #fff; color: #000; border: 2px solid #000; border-radius: 8px; cursor: pointer; padding: 0; }
+  /* A11Y: ocupada e escolhida diferem por forma (×, borda tracejada, preenchimento), não só por cor */
+  .seat:disabled { background: var(--sold); border-style: dashed; font-size: 28px; cursor: not-allowed; color: #000; }
+  .seat[aria-pressed="true"] { background: var(--picked); color: #fff; border-width: 3px; box-shadow: inset 0 0 0 2px #fff; }
+  .seat-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .seat-row { width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 16px; font: 700 20px/1.2 var(--font-ui); text-align: left; background: #fff; color: #000; border: 2px solid #000; border-radius: 10px; cursor: pointer; }
+  .seat-row .chk { display: none; font-weight: 800; white-space: nowrap; }
+  .seat-row[aria-pressed="true"] { background: var(--picked); color: #fff; border-width: 3px; }
+  .seat-row[aria-pressed="true"] .chk { display: inline; }
+
+  /* ---------- Pagamento ---------- */
+  .pay { display: flex; align-items: center; gap: 16px; min-height: 72px; padding: 14px 16px; border: 3px solid #000; border-radius: 12px; font-size: 20px; cursor: pointer; background: #fff; }
+  .pay input { appearance: none; -webkit-appearance: none; width: 32px; height: 32px; margin: 0; border: 3px solid #000; border-radius: 50%; background: #fff; display: grid; place-content: center; flex: none; }
+  .pay input::before { content: ""; width: 16px; height: 16px; border-radius: 50%; background: var(--go); transform: scale(0); }
+  .pay input:checked::before { transform: scale(1); }
+  .pay:has(input:checked) { border-color: var(--go); box-shadow: inset 0 0 0 2px var(--go); background: #F1FAF5; }
+  .pay .on { display: none; margin-left: auto; font-weight: 800; color: var(--go); white-space: nowrap; }
+  .pay:has(input:checked) .on { display: inline; }
+
+  /* ---------- Resumos ---------- */
+  .recap { border: 2px solid #000; border-radius: 12px; padding: 14px 16px; background: #fff; }
+  .demo-toggle { width: 100%; min-height: 56px; padding: 10px 14px; font: 700 18px/1.2 var(--font-ui); background: #fff; color: #000; border: 3px dashed #000; border-radius: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .demo-toggle[aria-pressed="true"] { background: #000; color: #fff; border-style: solid; }
+
+  .ok { display: flex; align-items: center; gap: 14px; background: var(--go); color: #fff; border-radius: 12px; padding: 16px; }
+  .ok h1 { margin: 0; font-size: 28px; line-height: 1.2; font-weight: 800; }
+  .qr-wrap { display: flex; justify-content: center; }
+  .qr-box { border: 3px solid #000; padding: 12px; background: #fff; border-radius: 6px; }
+  #qr { width: 200px; height: 200px; }
+  #qr canvas { display: none; }
+  #qr img { display: block; width: 200px !important; height: 200px !important; }
+  .ticket { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; margin: 0; font-size: 20px; }
+  .ticket dt { font-weight: 700; }
+  .ticket dd { margin: 0; font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- Navegação do protótipo: serve só para revisar as telas rapidamente. Não faz parte do app. -->
+<nav class="proto-bar" aria-label="Navegação do protótipo (não faz parte do aplicativo)">
+  <span>Protótipo:</span>
+  <button type="button" data-jump="1">Tela 1</button>
+  <button type="button" data-jump="2">Tela 2</button>
+  <button type="button" data-jump="3">Tela 3</button>
+  <button type="button" data-jump="4">Tela 4</button>
+  <button type="button" data-jump="5">Tela 5</button>
+</nav>
+
+<main class="phone">
+
+  <!-- =====================================================================
+       TELA 1 · BUSCA DE VIAGEM (Passo 1 de 4)
+       A11Y: uma única tarefa por tela; ao entrar, o foco vai para o título (h1),
+       então o leitor de tela começa lendo "onde estou".
+       ===================================================================== -->
+  <section class="screen" data-screen="1" aria-labelledby="h1-1">
+    <header class="pad head">
+      <div class="topline"><span class="brand">ViaFácil</span></div>
+      <p class="step">Passo 1 de 4: Escolha o Destino</p>
+      <div class="progress" aria-hidden="true"><i class="on"></i><i></i><i></i><i></i></div>
+      <!-- A11Y: o título fica só para leitores de tela (sr-only); o "Passo X de 4" já diz tudo e evita texto repetido -->
+      <h1 id="h1-1" class="title sr-only" tabindex="-1">Para onde você quer ir?</h1>
+    </header>
+
+    <div class="pad body">
+      <!-- ERRO HUMANIZADO: se algo faltar, a caixa amarela diz o que aconteceu e como resolver -->
+      <div id="s1-help" class="alert-box" role="alert" hidden>
+        <p class="alert-title">Falta um passo:</p>
+        <p id="s1-help-text" class="text-lg"></p>
+      </div>
+
+      <div>
+        <label class="lbl" for="origem">Saindo de:</label>
+        <input id="origem" class="field" type="text" value="Vacaria, RS" autocomplete="off">
+      </div>
+      <!-- A11Y: botão grande e com nome claro; o leitor de tela anuncia o resultado da troca (aria-live) -->
+      <button type="button" id="btn-swap" class="swap"><span aria-hidden="true">⇄</span> Inverter origem e destino</button>
+      <p id="swap-msg" class="sr-only" aria-live="polite"></p>
+      <div>
+        <label class="lbl" for="destino">Indo para:</label>
+        <input id="destino" class="field" type="text" value="Caxias do Sul, RS" autocomplete="off">
+      </div>
+
+      <fieldset style="border:0;margin:0;padding:0;min-width:0">
+        <legend class="lbl">Quando?</legend>
+        <div class="grid grid-cols-2 gap-3">
+          <button type="button" class="date-btn" data-date="hoje" aria-pressed="true">HOJE<small id="d-hoje"></small></button>
+          <button type="button" class="date-btn" data-date="amanha" aria-pressed="false">AMANHÃ<small id="d-amanha"></small></button>
+        </div>
+        <div class="mt-3">
+          <button type="button" class="other-btn" data-date="outra" aria-pressed="false">Outra data</button>
+        </div>
+        <div id="other-date-wrap" class="mt-3" hidden>
+          <label class="lbl" for="other-date">Qual dia?</label>
+          <input id="other-date" class="field" type="date">
+        </div>
+        <!-- A11Y: aria-live avisa a data escolhida sem precisar procurar na tela -->
+        <p id="date-readout" class="mt-4 text-xl font-bold" aria-live="polite"></p>
+      </fieldset>
+    </div>
+
+    <footer class="pad screen-foot">
+      <button type="button" id="btn-s1" class="btn btn-go">AVANÇAR PARA HORÁRIOS</button>
+    </footer>
+  </section>
+
+  <!-- =====================================================================
+       TELA 2 · LISTAGEM DE HORÁRIOS (Passo 2 de 4)
+       ===================================================================== -->
+  <section class="screen" data-screen="2" aria-labelledby="h1-2" hidden>
+    <header class="pad head">
+      <div class="topline">
+        <button type="button" class="back" data-go="1"><span aria-hidden="true">←</span> Voltar</button>
+        <span class="brand">ViaFácil</span>
+      </div>
+      <p class="step">Passo 2 de 4: Escolha o Horário</p>
+      <div class="progress" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+      <h1 id="h1-2" class="title sr-only" tabindex="-1">Qual horário é melhor para você?</h1>
+    </header>
+
+    <div class="pad body">
+      <p id="trip-line" class="text-xl font-bold m-0"></p>
+      <ul id="trip-list" class="list-none m-0 p-0 grid gap-4"></ul>
+    </div>
+  </section>
+
+  <!-- =====================================================================
+       TELA 3 · SELEÇÃO ACESSÍVEL DE POLTRONA (Passo 3 de 4)
+       A11Y: duas formas de escolher a mesma poltrona. "Mapa Visual" para quem enxerga
+       o desenho; "Lista em Texto" para leitores de tela e para quem prefere letras grandes.
+       ===================================================================== -->
+  <section class="screen" data-screen="3" aria-labelledby="h1-3" hidden>
+    <header class="pad head">
+      <div class="topline">
+        <button type="button" class="back" data-go="2"><span aria-hidden="true">←</span> Voltar</button>
+        <span class="brand">ViaFácil</span>
+      </div>
+      <p class="step">Passo 3 de 4: Escolha seu Assento</p>
+      <div class="progress" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+      <h1 id="h1-3" class="title sr-only" tabindex="-1">Onde você quer sentar?</h1>
+    </header>
+
+    <div class="pad body">
+      <!-- A11Y: abas com role tablist; setas do teclado trocam de aba -->
+      <div class="tabs" role="tablist" aria-label="Forma de escolher a poltrona">
+        <button type="button" class="tab" role="tab" id="tab-map" aria-controls="panel-map" aria-selected="true">Mapa Visual</button>
+        <button type="button" class="tab" role="tab" id="tab-list" aria-controls="panel-list" aria-selected="false" tabindex="-1">Lista em Texto</button>
+      </div>
+
+      <div id="panel-map" role="tabpanel" aria-labelledby="tab-map" class="flex flex-col gap-4">
+        <ul class="legend" aria-label="Legenda do mapa">
+          <li><span class="sw" aria-hidden="true"></span> Livre</li>
+          <li><span class="sw sold" aria-hidden="true">×</span> Ocupada</li>
+          <li><span class="sw pick" aria-hidden="true"></span> Escolhida</li>
+        </ul>
+
+        <div class="bus">
+          <div class="bus-front">
+            <!-- Desenho decorativo: para-brisa e volante do motorista -->
+            <svg viewBox="0 0 320 78" aria-hidden="true" focusable="false">
+              <path d="M14 58 Q160 4 306 58" fill="none" stroke="#000" stroke-width="5" stroke-linecap="round"/>
+              <circle cx="64" cy="60" r="12" fill="#fff" stroke="#000" stroke-width="4"/>
+              <path d="M52 60 H76 M64 60 V72" stroke="#000" stroke-width="3"/>
+              <path d="M24 77 H104" stroke="#000" stroke-width="3"/>
+              <path d="M216 77 H296" stroke="#000" stroke-width="3"/>
+            </svg>
+          </div>
+          <p class="bus-label">Frente</p>
+          <div id="seat-grid" class="seat-grid" role="group" aria-label="Mapa das poltronas"></div>
+        </div>
+      </div>
+
+      <div id="panel-list" role="tabpanel" aria-labelledby="tab-list" class="flex flex-col gap-3" hidden>
+        <ul id="seat-list" class="seat-list" aria-label="Poltronas livres"></ul>
+      </div>
+    </div>
+
+    <footer class="pad screen-foot">
+      <!-- A11Y: resumo em aria-live; o leitor de tela anuncia cada nova escolha -->
+      <div class="cream" aria-live="polite">
+        <p id="seat-summary" class="text-xl font-bold m-0"></p>
+      </div>
+      <button type="button" id="btn-s3" class="btn btn-go">CONFIRMAR POLTRONA</button>
+    </footer>
+  </section>
+
+  <!-- =====================================================================
+       TELA 4 · DADOS DO PASSAGEIRO E ERRO RECUPERÁVEL (Passo 4 de 4)
+       ===================================================================== -->
+  <section class="screen" data-screen="4" aria-labelledby="h1-4" hidden>
+    <header class="pad head">
+      <div class="topline">
+        <button type="button" class="back" data-go="3"><span aria-hidden="true">←</span> Voltar</button>
+        <span class="brand">ViaFácil</span>
+      </div>
+      <p class="step">Passo 4 de 4: Pagamento e Confirmação</p>
+      <div class="progress" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+      <h1 id="h1-4" class="title sr-only" tabindex="-1">Dados do passageiro e pagamento</h1>
+    </header>
+
+    <div class="pad body">
+      <!-- Mecanismo do protótipo exigido no briefing: liga/desliga o estado de erro do CPF -->
+      <button type="button" id="toggle-err" class="demo-toggle" aria-pressed="false">
+        <span>Simular erro de CPF</span>
+        <span id="toggle-state" aria-hidden="true">DESLIGADO</span>
+      </button>
+
+      <div class="recap">
+        <dl class="kv" id="recap"></dl>
+      </div>
+
+      <div>
+        <label class="lbl" for="nome">Nome Completo</label>
+        <!-- ERRO HUMANIZADO (nome): mesma estrutura da caixa do CPF, sempre acima do campo -->
+        <div id="nome-box" class="alert-box" role="alert" hidden>
+          <p class="alert-title">O que aconteceu:</p>
+          <p class="text-lg">Falta o nome do passageiro.</p>
+          <p class="alert-title mt-3">Como resolver:</p>
+          <p class="text-lg">Digite o nome como está no documento.</p>
+        </div>
+        <input id="nome" class="field" type="text" value="Maria das Dores Silva" autocomplete="name">
+      </div>
+
+      <div>
+        <label class="lbl" for="cpf">CPF</label>
+
+        <!-- ERRO HUMANIZADO: a caixa amarela vem IMEDIATAMENTE ACIMA do campo, com
+             o que aconteceu e como resolver, em linguagem simples e sem culpar a pessoa.
+             role="alert" faz o leitor de tela anunciar na hora. -->
+        <div id="cpf-box" class="alert-box" role="alert" hidden>
+          <div class="flex items-start gap-4">
+            <!-- Ícone de alerta [ ! ] em 40px -->
+            <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true" focusable="false" class="flex-none">
+              <path d="M20 3 L38 36 H2 Z" fill="#000"/>
+              <rect x="18" y="14" width="4" height="12" fill="#FFF200"/>
+              <rect x="18" y="29" width="4" height="4" fill="#FFF200"/>
+            </svg>
+            <div>
+              <p class="alert-title">O que aconteceu:</p>
+              <p class="text-lg">O CPF digitado está com números faltando.</p>
+              <p class="alert-title mt-3">Como resolver:</p>
+              <p class="text-lg">Confira o documento do passageiro e digite os 11 números sem pontos ou hífen.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ERRO RECUPERÁVEL: o valor digitado NUNCA é apagado. Só a borda muda (3px vermelha)
+             e o campo é marcado com aria-invalid. -->
+        <input id="cpf" class="field" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="11" autocomplete="off" value="1234567" aria-describedby="cpf-hint">
+        <p id="cpf-hint" class="hint">Só os 11 números: <strong id="cpf-count"></strong></p>
+      </div>
+
+      <fieldset style="border:0;margin:0;padding:0;min-width:0">
+        <legend class="lbl">Pagamento</legend>
+        <div class="grid gap-3">
+          <label class="pay"><input type="radio" name="pay" value="Pix" checked><strong>Pix</strong><span class="on" aria-hidden="true">✓</span></label>
+          <label class="pay"><input type="radio" name="pay" value="Cartão de Crédito"><strong>Cartão de Crédito</strong><span class="on" aria-hidden="true">✓</span></label>
+        </div>
+      </fieldset>
+    </div>
+
+    <footer class="pad screen-foot">
+      <button type="button" id="btn-pay" class="btn btn-go">FINALIZAR E PAGAR</button>
+    </footer>
+  </section>
+
+  <!-- =====================================================================
+       TELA 5 · BILHETE DIGITAL DE EMBARQUE
+       ===================================================================== -->
+  <section class="screen" data-screen="5" aria-labelledby="h1-5" hidden>
+    <header class="pad head">
+      <div class="topline"><span class="brand">ViaFácil</span></div>
+    </header>
+
+    <div class="pad body">
+      <div class="ok">
+        <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true" focusable="false" class="flex-none">
+          <circle cx="22" cy="22" r="20" fill="#fff"/>
+          <path d="M12 23 L19 30 L33 15" fill="none" stroke="#006633" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h1 id="h1-5" tabindex="-1">Compra Realizada com Sucesso!</h1>
+      </div>
+
+      <div class="qr-wrap">
+        <div class="qr-box"><div id="qr" role="img" aria-label="QR Code de embarque"></div></div>
+      </div>
+
+      <dl class="ticket" id="ticket"></dl>
+
+      <div class="cream">
+        <p class="text-xl font-bold m-0">Apresente esta tela diretamente ao motorista na porta do ônibus. Não é necessário imprimir papel.</p>
+      </div>
+
+      <p id="save-msg" class="alert-box" style="margin:0" role="status" hidden></p>
+    </div>
+
+    <footer class="pad screen-foot">
+      <button type="button" id="btn-save" class="btn btn-line">Salvar no Celular</button>
+      <a id="btn-wa" class="btn btn-go" href="https://wa.me/" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+      <!-- Volta ao Passo 1 de 4 para uma nova compra; alto contraste (preto sobre branco) e altura mínima de 60px (maior que os 48px pedidos) -->
+      <button type="button" id="btn-restart" class="btn btn-dark" data-go="1">Voltar ao Início / Nova Compra</button>
+    </footer>
+  </section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------
+     Utilitários
+     ------------------------------------------------------------------ */
+  const $  = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+  const pad2  = n => String(n).padStart(2, '0');
+  const money = v => 'R$ ' + v.toFixed(2).replace('.', ',');
+  const cap   = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const iso   = d => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  const parseISO = v => { const p = v.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); };
+  const fmtLong  = d => d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const fmtShort = d => d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+
+  /* ------------------------------------------------------------------
+     Dados de exemplo (fictícios)
+     ------------------------------------------------------------------ */
+  const TRIPS = [
+    { dep: '06:30', arr: '08:45', dur: '2 h 15 min', co: 'Expresso Campos de Cima', price: 45 },
+    { dep: '09:15', arr: '11:30', dur: '2 h 15 min', co: 'Viação Serra Azul',       price: 48 },
+    { dep: '13:40', arr: '15:55', dur: '2 h 15 min', co: 'Expresso Campos de Cima', price: 45 },
+    { dep: '18:10', arr: '20:30', dur: '2 h 20 min', co: 'Viação Planalto Gaúcho',  price: 52 }
+  ];
+  // Poltronas ocupadas (mesmo desenho da imagem de referência; a 05 fica livre)
+  const SOLD = new Set([1, 2, 8, 10, 15, 22, 24]);
+  const ROWS = 6;
+  // Numeração por fileira r: janela esq = 4r-3, corredor esq = 4r-2, corredor dir = 4r, janela dir = 4r-1
+  const seatKind = n => (n % 4 === 1 || n % 4 === 3) ? 'Janela' : 'Corredor';
+  const seatName = n => pad2(n);
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+
+  const state = {
+    screen: 1,
+    origin: 'Vacaria, RS',
+    dest: 'Caxias do Sul, RS',
+    dateKind: 'hoje',
+    date: today,
+    trip: TRIPS[0],
+    seat: 5,
+    cpfError: false
+  };
+
+  /* ------------------------------------------------------------------
+     Navegação entre telas (wizard)
+     ------------------------------------------------------------------ */
+  const screens = $$('.screen');
+
+  function go(n, opts) {
+    state.screen = n;
+    screens.forEach(s => { s.hidden = Number(s.dataset.screen) !== n; });
+    $$('[data-jump]').forEach(b => b.setAttribute('aria-current', Number(b.dataset.jump) === n ? 'page' : 'false'));
+    if (n === 2) renderTripHeader();
+    if (n === 3) updateSeatSummary();
+    if (n === 4) fillRecap();
+    if (n === 5) fillTicket();
+    window.scrollTo(0, 0);
+    if (!opts || !opts.silent) {
+      // A11Y: ao trocar de etapa, o foco vai ao título; leitores de tela anunciam a nova tela.
+      const h = $('h1', screens[n - 1]);
+      if (h) h.focus({ preventScroll: true });
+    }
+  }
+
+  document.addEventListener('click', e => {
+    const goBtn = e.target.closest('[data-go]');
+    if (goBtn) {
+      // Nova compra: recomeça do Passo 1 com a poltrona e o erro de CPF zerados
+      if (goBtn.id === 'btn-restart') { selectSeat(5); setCpfError(false); }
+      go(Number(goBtn.dataset.go));
+    }
+    const jump = e.target.closest('[data-jump]');
+    if (jump) go(Number(jump.dataset.jump));
+  });
+
+  /* ------------------------------------------------------------------
+     TELA 1 · datas e validação
+     ------------------------------------------------------------------ */
+  $('#d-hoje').textContent = fmtShort(today);
+  $('#d-amanha').textContent = fmtShort(tomorrow);
+  $('#other-date').min = iso(today);
+
+  function pickDate(kind) {
+    state.dateKind = kind;
+    $$('[data-date]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.date === kind)));
+    $('#other-date-wrap').hidden = kind !== 'outra';
+    if (kind === 'hoje') state.date = today;
+    else if (kind === 'amanha') state.date = tomorrow;
+    else { const v = $('#other-date').value; state.date = v ? parseISO(v) : null; }
+    $('#date-readout').textContent = state.date ? cap(fmtLong(state.date)) : 'Escolha o dia abaixo.';
+  }
+  $$('[data-date]').forEach(b => b.addEventListener('click', () => pickDate(b.dataset.date)));
+  $('#other-date').addEventListener('change', () => pickDate('outra'));
+
+  // Inverter origem e destino (o texto já digitado é preservado, só troca de lugar)
+  $('#btn-swap').addEventListener('click', () => {
+    const o = $('#origem'), d = $('#destino');
+    const tmp = o.value; o.value = d.value; d.value = tmp;
+    $('#swap-msg').textContent = 'Agora você sai de ' + o.value + ' e vai para ' + d.value + '.';
+  });
+
+  $('#btn-s1').addEventListener('click', () => {
+    const o = $('#origem').value.trim();
+    const d = $('#destino').value.trim();
+    let msg = '';
+    // ERRO HUMANIZADO: mensagem curta, diz o que falta e o que fazer
+    if (!o) msg = 'Digite a cidade de onde você vai sair.';
+    else if (!d) msg = 'Digite a cidade para onde você vai.';
+    else if (!state.date) msg = 'Escolha o dia da viagem: toque em HOJE, AMANHÃ ou Outra data.';
+    const help = $('#s1-help');
+    if (msg) {
+      $('#s1-help-text').textContent = msg;
+      help.hidden = false;
+      help.scrollIntoView({ block: 'center' });
+      return;
+    }
+    help.hidden = true;
+    state.origin = o;
+    state.dest = d;
+    go(2);
+  });
+
+  /* ------------------------------------------------------------------
+     TELA 2 · horários
+     ------------------------------------------------------------------ */
+  function renderTripHeader() {
+    $('#trip-line').textContent = state.origin + ' → ' + state.dest + ' · ' + fmtShort(state.date);
+  }
+
+  const tripList = $('#trip-list');
+  TRIPS.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.innerHTML =
+      '<article class="trip-card" aria-labelledby="trip-' + i + '">' +
+        '<div class="flex items-start justify-between gap-3">' +
+          '<div><p class="m-0 text-lg font-bold">Saída</p><p id="trip-' + i + '" class="trip-dep m-0 mt-1">' + t.dep + '</p></div>' +
+          '<p class="trip-price m-0">' + money(t.price) + '</p>' +
+        '</div>' +
+        '<div class="text-lg"><p class="m-0">Chega às <strong>' + t.arr + '</strong> · ' + t.dur + '</p><p class="m-0">' + t.co + '</p></div>' +
+        '<button type="button" class="btn btn-dark" data-trip="' + i + '" aria-label="Escolher o ônibus das ' + t.dep + ', chega às ' + t.arr + ', ' + t.dur + ', ' + t.co + ', ' + money(t.price) + '">ESCOLHER</button>' +
+      '</article>';
+    tripList.appendChild(li);
+  });
+  tripList.addEventListener('click', e => {
+    const b = e.target.closest('[data-trip]');
+    if (!b) return;
+    state.trip = TRIPS[Number(b.dataset.trip)];
+    go(3);
+  });
+
+  /* ------------------------------------------------------------------
+     TELA 3 · poltronas (mapa + lista usam o mesmo estado)
+     ------------------------------------------------------------------ */
+  const grid = $('#seat-grid');
+  function makeSeat(n) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'seat';
+    b.dataset.seat = n;
+    if (SOLD.has(n)) {
+      b.disabled = true;
+      b.textContent = '×';
+      // A11Y: leitor de tela lê "Poltrona 01, janela, ocupada" em vez de só "×"
+      b.setAttribute('aria-label', 'Poltrona ' + seatName(n) + ', ' + seatKind(n).toLowerCase() + ', ocupada');
+    } else {
+      b.textContent = seatName(n);
+      b.setAttribute('aria-label', 'Poltrona ' + seatName(n) + ', ' + seatKind(n).toLowerCase() + ', livre');
+      b.setAttribute('aria-pressed', 'false');
+    }
+    return b;
+  }
+  // Cabeçalho das colunas (decorativo: cada poltrona já diz "janela" ou "corredor" no aria-label)
+  ['Janela', 'Corredor', 'Corredor', 'Janela'].forEach(t => {
+    const h = document.createElement('div');
+    h.className = 'col-head';
+    h.setAttribute('aria-hidden', 'true');
+    h.textContent = t;
+    grid.appendChild(h);
+  });
+  const aisle = document.createElement('div');
+  aisle.className = 'aisle';
+  aisle.setAttribute('aria-hidden', 'true');
+  aisle.textContent = 'Corredor';
+  grid.appendChild(aisle);
+  for (let r = 1; r <= ROWS; r++) {
+    const base = 4 * (r - 1);
+    [base + 1, base + 2, base + 4, base + 3].forEach(n => grid.appendChild(makeSeat(n)));
+  }
+
+  const seatList = $('#seat-list');
+  let freeCount = 0;
+  for (let n = 1; n <= ROWS * 4; n++) {
+    if (SOLD.has(n)) continue;
+    freeCount++;
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'seat-row';
+    b.dataset.seat = n;
+    b.setAttribute('aria-pressed', 'false');
+    const t = document.createElement('span');
+    t.textContent = 'Poltrona ' + seatName(n) + ' - ' + seatKind(n) + ' - Livre';
+    const c = document.createElement('span');
+    c.className = 'chk';
+    c.setAttribute('aria-hidden', 'true');
+    c.textContent = '✓ Escolhida';
+    b.append(t, c);
+    li.appendChild(b);
+    seatList.appendChild(li);
+  }
+
+  function selectSeat(n) {
+    state.seat = n;
+    $$('[data-seat]:not(:disabled)').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.seat) === n)));
+    updateSeatSummary();
+  }
+  function updateSeatSummary() {
+    $('#seat-summary').textContent = 'Você selecionou: Poltrona ' + seatName(state.seat) + ' (' + seatKind(state.seat) + ')';
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-seat]');
+    if (b && !b.disabled) selectSeat(Number(b.dataset.seat));
+  });
+  selectSeat(5);
+
+  // A11Y: abas com teclado (setas esquerda/direita)
+  const tabs = $$('[role="tab"]');
+  function showTab(i, focus) {
+    tabs.forEach((t, j) => {
+      t.setAttribute('aria-selected', String(j === i));
+      t.tabIndex = j === i ? 0 : -1;
+      $('#' + t.getAttribute('aria-controls')).hidden = j !== i;
+    });
+    if (focus) tabs[i].focus();
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener('click', () => showTab(i));
+    t.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); showTab((i + 1) % 2, true); }
+    });
+  });
+
+  $('#btn-s3').addEventListener('click', () => go(4));
+
+  /* ------------------------------------------------------------------
+     TELA 4 · dados do passageiro e ERRO RECUPERÁVEL
+     ------------------------------------------------------------------ */
+  const cpf = $('#cpf');
+  const cpfBox = $('#cpf-box');
+  const nome = $('#nome');
+  const nomeBox = $('#nome-box');
+  const toggle = $('#toggle-err');
+
+  function digitsCount() { return cpf.value.replace(/\D/g, '').length; }
+  function updateCount() { $('#cpf-count').textContent = digitsCount() + ' de 11'; }
+
+  // ERRO RECUPERÁVEL: liga/desliga o estado de erro SEM mexer no texto do campo.
+  function setCpfError(on) {
+    state.cpfError = on;
+    cpfBox.hidden = !on;
+    cpf.classList.toggle('is-error', on);       // borda vermelha de 3px
+    if (on) {
+      cpf.setAttribute('aria-invalid', 'true');
+      cpf.setAttribute('aria-describedby', 'cpf-hint');
+    } else {
+      cpf.removeAttribute('aria-invalid');
+    }
+    toggle.setAttribute('aria-pressed', String(on));
+    $('#toggle-state').textContent = on ? 'LIGADO' : 'DESLIGADO';
+  }
+  function setNomeError(on) {
+    nomeBox.hidden = !on;
+    nome.classList.toggle('is-error', on);
+    if (on) nome.setAttribute('aria-invalid', 'true'); else nome.removeAttribute('aria-invalid');
+  }
+
+  toggle.addEventListener('click', () => setCpfError(!state.cpfError));
+
+  cpf.addEventListener('input', () => {
+    // Só tira letras e símbolos; os números digitados ficam.
+    const clean = cpf.value.replace(/\D/g, '').slice(0, 11);
+    if (clean !== cpf.value) cpf.value = clean;
+    updateCount();
+    // Recuperação: ao completar os 11 números, o erro some sozinho.
+    if (clean.length === 11 && state.cpfError) setCpfError(false);
+  });
+  nome.addEventListener('input', () => { if (nome.value.trim().length >= 3) setNomeError(false); });
+
+  function fillRecap() {
+    const rows = [
+      ['Viagem:', state.origin + ' → ' + state.dest],
+      ['Saída:', fmtShort(state.date) + ' às ' + state.trip.dep + ' · Poltrona ' + seatName(state.seat)],
+      ['Total:', money(state.trip.price)]
+    ];
+    const dl = $('#recap');
+    dl.textContent = '';
+    rows.forEach(r => {
+      const dt = document.createElement('dt'); dt.textContent = r[0];
+      const dd = document.createElement('dd'); dd.textContent = r[1];
+      if (r[0] === 'Total:') dd.style.fontWeight = '800';
+      dl.append(dt, dd);
+    });
+  }
+
+  $('#btn-pay').addEventListener('click', () => {
+    if (nome.value.trim().length < 3) {
+      setNomeError(true);
+      nomeBox.scrollIntoView({ block: 'center' });
+      nome.focus({ preventScroll: true });
+      return;
+    }
+    if (digitsCount() !== 11) {
+      setCpfError(true);
+      cpfBox.scrollIntoView({ block: 'center' });
+      cpf.focus({ preventScroll: true });   // foco volta ao campo, com o texto intacto
+      return;
+    }
+    setCpfError(false);
+    go(5);
+  });
+
+  /* ------------------------------------------------------------------
+     TELA 5 · bilhete digital
+     ------------------------------------------------------------------ */
+  function fillTicket() {
+    const rows = [
+      ['Origem:', state.origin],
+      ['Destino:', state.dest],
+      ['Data:', cap(fmtLong(state.date))],
+      ['Horário:', state.trip.dep],
+      ['Poltrona:', seatName(state.seat) + ' (' + seatKind(state.seat) + ')']
+    ];
+    const dl = $('#ticket');
+    dl.textContent = '';
+    rows.forEach(r => {
+      const dt = document.createElement('dt'); dt.textContent = r[0];
+      const dd = document.createElement('dd'); dd.textContent = r[1];
+      dl.append(dt, dd);
+    });
+
+    const code = 'VF-' + iso(state.date).replace(/-/g, '') + '-' + state.trip.dep.replace(':', '') + '-P' + seatName(state.seat);
+    const qr = $('#qr');
+    qr.textContent = '';
+    qr.setAttribute('aria-label', 'QR Code de embarque, poltrona ' + seatName(state.seat));
+    if (window.QRCode) {
+      new window.QRCode(qr, { text: code + '|' + state.origin + '>' + state.dest, width: 200, height: 200, colorDark: '#000000', colorLight: '#ffffff', correctLevel: window.QRCode.CorrectLevel.M });
+    } else {
+      qr.style.cssText = 'display:grid;place-content:center;text-align:center;font-weight:800;font-size:20px';
+      qr.textContent = 'QR Code ' + code;
+    }
+
+    const msg = 'Minha passagem ViaFácil: ' + state.origin + ' para ' + state.dest + ', ' + fmtLong(state.date) + ', saída às ' + state.trip.dep + ', poltrona ' + seatName(state.seat) + '. Código ' + code + '.';
+    $('#btn-wa').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+    $('#save-msg').hidden = true;
+  }
+
+  $('#btn-save').addEventListener('click', () => {
+    const m = $('#save-msg');
+    m.textContent = 'Bilhete salvo! (simulação do protótipo)';
+    m.hidden = false;
+  });
+
+  /* ------------------------------------------------------------------
+     Estado inicial
+     ------------------------------------------------------------------ */
+  pickDate('hoje');
+  updateCount();
+  setCpfError(false);
+  showTab(0);
+  go(1, { silent: true });
+})();
+</script>
+</body>
+</html>
